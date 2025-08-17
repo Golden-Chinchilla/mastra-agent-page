@@ -2,6 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
 import { mastraClient } from './mastraClient';
 import './App.css'
+import ReactMarkdown from 'react-markdown';
+
+// Get a reference to your local agent
+// const agent = mastraClient.getAgent("dev-agent-id");
+const agent = mastraClient.getAgent("cryptoAgent");
 
 interface Message {
   id: string;
@@ -10,22 +15,7 @@ interface Message {
   timestamp: Date;
 }
 
-// Get a reference to your local agent
-const agent = mastraClient.getAgent("dev-agent-id");
-
-// Generate responses
-const response = async () => {
-  await agent.generate({
-    messages: [
-      {
-        role: "user",
-        content: "Hello, I'm testing the local development setup!",
-      },
-    ],
-  });
-}
-
-const App: React.FC = () => {
+const AIChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -47,15 +37,22 @@ const App: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  const simulateAIResponse = (userMessage: string): string => {
-    const responses = [
-      '这是一个很有趣的问题！让我来为你详细解答...',
-      '我理解你的意思。根据我的分析，我建议...',
-      '这个话题很有深度。从多个角度来看...',
-      '好的，我来帮你分析一下这个情况...',
-      '非常好的问题！让我为你提供一些见解...'
-    ];
-    return responses[Math.floor(Math.random() * responses.length)] + `（回复：${userMessage}）`;
+  const getAIResponse = async (userMessage: string): Promise<string> => {
+    try {
+      const response = await agent.generate({
+        messages: [
+          {
+            role: "user",
+            content: userMessage,
+          },
+        ],
+      });
+      // 根据你的API返回格式调整这里
+      return response.text || 'AI未返回内容';
+    } catch (error) {
+      console.error('AI响应错误:', error);
+      return '抱歉，我现在无法回复，请稍后再试。';
+    }
   };
 
   const handleSendMessage = async () => {
@@ -69,20 +66,32 @@ const App: React.FC = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = inputMessage;
     setInputMessage('');
     setIsTyping(true);
 
-    // 模拟AI响应延迟
-    setTimeout(() => {
+    try {
+      const aiResponse = await getAIResponse(currentMessage);
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: simulateAIResponse(inputMessage),
+        content: aiResponse,
         sender: 'ai',
         timestamp: new Date()
       };
+
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: '抱歉，我现在无法回复，请稍后再试。',
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -102,7 +111,7 @@ const App: React.FC = () => {
             <div className="absolute inset-0 w-8 h-8 bg-cyan-400/20 rounded-full blur-md animate-pulse"></div>
           </div>
           <h1 className="text-2xl font-bold text-white bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-            一个获取以太坊当前 gas 的 Agent
+            AI Agent 助手
           </h1>
         </div>
       </div>
@@ -134,7 +143,10 @@ const App: React.FC = () => {
               ? 'bg-gradient-to-r from-purple-600/80 to-pink-600/80 text-white ml-auto border border-purple-500/30 shadow-lg shadow-purple-500/20'
               : 'bg-gray-800/80 text-gray-100 border border-gray-600/30 shadow-lg shadow-gray-800/20'
               }`}>
-              <p className="text-sm leading-relaxed">{message.content}</p>
+              {/* <p className="text-sm leading-relaxed">{message.content}</p> */}
+              <div className="text-sm leading-relaxed">
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+              </div>
               <div className={`absolute inset-0 rounded-2xl blur-sm -z-10 ${message.sender === 'user' ? 'bg-purple-500/10' : 'bg-gray-600/10'
                 }`}></div>
             </div>
@@ -199,4 +211,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App
+export default AIChatInterface;
